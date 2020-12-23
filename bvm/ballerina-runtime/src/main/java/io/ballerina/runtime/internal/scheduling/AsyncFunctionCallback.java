@@ -35,6 +35,10 @@ public abstract class AsyncFunctionCallback implements Callback {
 
     public void setReturnValues(Object returnValue) {
         strand.returnValue = returnValue;
+    }
+
+    public void setReturnValuesAndUnblock(Object returnValue) {
+        strand.returnValue = returnValue;
         strand.scheduler.unblockStrand(strand);
     }
 
