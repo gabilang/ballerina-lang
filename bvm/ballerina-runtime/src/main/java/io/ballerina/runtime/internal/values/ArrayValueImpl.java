@@ -26,6 +26,7 @@ import io.ballerina.runtime.api.types.ArrayType.ArrayState;
 import io.ballerina.runtime.api.types.Type;
 import io.ballerina.runtime.api.utils.StringUtils;
 import io.ballerina.runtime.api.values.BArray;
+import io.ballerina.runtime.api.values.BFunctionPointer;
 import io.ballerina.runtime.api.values.BIterator;
 import io.ballerina.runtime.api.values.BLink;
 import io.ballerina.runtime.api.values.BListInitialValueEntry;
@@ -34,8 +35,11 @@ import io.ballerina.runtime.api.values.BTypedesc;
 import io.ballerina.runtime.api.values.BValue;
 import io.ballerina.runtime.internal.CycleUtils;
 import io.ballerina.runtime.internal.TypeChecker;
+import io.ballerina.runtime.internal.scheduling.AsyncUtils;
 import io.ballerina.runtime.internal.scheduling.Scheduler;
+import io.ballerina.runtime.internal.scheduling.Strand;
 import io.ballerina.runtime.internal.types.BArrayType;
+import io.ballerina.runtime.internal.types.BFunctionType;
 import io.ballerina.runtime.internal.util.exceptions.BLangExceptionHelper;
 import io.ballerina.runtime.internal.util.exceptions.BallerinaErrorReasons;
 import io.ballerina.runtime.internal.util.exceptions.BallerinaException;
@@ -48,6 +52,8 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 import java.util.StringJoiner;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.stream.IntStream;
 
 import static io.ballerina.runtime.api.constants.RuntimeConstants.ARRAY_LANG_LIB;
@@ -1065,9 +1071,16 @@ public class ArrayValueImpl extends AbstractArrayValue {
     }
 
     private void extractComplexFillerValues(int index) {
-        for (int i = size; i < index; i++) {
-            this.refValues[i] = this.elementType.getZeroValue();
-        }
+        int fillSize = index - this.size;
+        Strand parentStrand = Scheduler.getStrand();
+        AtomicInteger atomicOIndex = new AtomicInteger(size - 1);
+        Function<?, ?> func = i -> {
+            this.refValues[atomicOIndex.incrementAndGet()] = this.elementType.getZeroValue();
+            return null;
+        };
+        BFunctionPointer<?, ?> fp = new FPValue<>(func, new BFunctionType(), null, false);
+        AsyncUtils.invokeFunctionPointerAsyncIteratively(fp, null, null, fillSize,
+                () -> new Object[]{parentStrand}, o -> {}, () -> null, Scheduler.getStrand().scheduler);
     }
 
     private void extractRecordFillerValues(int index) {
