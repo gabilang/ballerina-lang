@@ -239,4 +239,9 @@ public class BirVariableOptimizer extends BIRVisitor {
     public void visit(BIRTerminator.WorkerSend workerSend) {
         // Do nothing
     }
+
+    @Override
+    public void visit(BIRTerminator.ArrayStore arrayStore) {
+        // Do nothing
+    }
 }

@@ -2401,9 +2401,12 @@ public class BIRGen extends BLangNodeVisitor {
             }
         }
 
-        setScopeAndEmit(
-                new BIRNonTerminator.NewArray(listConstructorExpr.pos, listConstructorExprType, toVarRef, sizeOp,
-                        initialValues));
+        BIRBasicBlock nextBB = new BIRBasicBlock(this.env.nextBBId(names));
+        this.env.enclBasicBlocks.add(nextBB);
+        BIRTerminator.NewArray newArray = new BIRTerminator.NewArray(listConstructorExpr.pos, listConstructorExprType,
+                toVarRef, sizeOp, initialValues, nextBB, this.currentScope);
+        this.env.enclBB.terminator = newArray;
+        this.env.enclBB = nextBB;
         this.env.targetOperand = toVarRef;
     }
 
@@ -2420,8 +2423,12 @@ public class BIRGen extends BLangNodeVisitor {
         BIROperand keyRegIndex = this.env.targetOperand;
 
         if (variableStore) {
-            setScopeAndEmit(new BIRNonTerminator.FieldAccess(astArrayAccessExpr.pos, InstructionKind.ARRAY_STORE,
-                    varRefRegIndex, keyRegIndex, rhsOp));
+            BIRBasicBlock nextBB = new BIRBasicBlock(this.env.nextBBId(names));
+            this.env.enclBasicBlocks.add(nextBB);
+            BIRTerminator.ArrayStore arrayStore = new BIRTerminator.ArrayStore(astArrayAccessExpr.pos, nextBB,
+                    varRefRegIndex, keyRegIndex, rhsOp, this.currentScope);
+            this.env.enclBB.terminator = arrayStore;
+            this.env.enclBB = nextBB;
             return;
         }
         BIRVariableDcl tempVarDcl = new BIRVariableDcl(astArrayAccessExpr.getBType(), this.env.nextLocalVarId(names),

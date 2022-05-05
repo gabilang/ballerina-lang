@@ -254,4 +254,14 @@ public class BIRLockOptimizer extends BIRVisitor {
 
         terminator.accept(this);
     }
+
+    @Override
+    public void visit(BIRTerminator.ArrayStore arrayStore) {
+        // Do nothing
+    }
+
+    @Override
+    public void visit(BIRTerminator.NewArray newArray) {
+        // Do nothing
+    }
 }

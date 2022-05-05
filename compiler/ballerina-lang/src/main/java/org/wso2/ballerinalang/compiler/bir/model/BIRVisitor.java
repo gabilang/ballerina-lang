@@ -142,6 +142,14 @@ public abstract class BIRVisitor {
         throw new AssertionError();
     }
 
+    public void visit(BIRTerminator.ArrayStore arrayStore) {
+        throw new AssertionError();
+    }
+
+    public void visit(BIRTerminator.NewArray newArray) {
+        throw new AssertionError();
+    }
+
 
     // Non-terminating instructions
 

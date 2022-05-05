@@ -278,4 +278,18 @@ public class BIRBasicBlockOptimizer extends BIRVisitor {
             workerSend.thenBB = this.env.nextBB;
         }
     }
+
+    @Override
+    public void visit(BIRTerminator.ArrayStore arrayStore) {
+        if (arrayStore.nextBB == this.env.currentBB) {
+            arrayStore.nextBB = this.env.nextBB;
+        }
+    }
+
+    @Override
+    public void visit(BIRTerminator.NewArray newArray) {
+        if (newArray.nextBB == this.env.currentBB) {
+            newArray.nextBB = this.env.nextBB;
+        }
+    }
 }

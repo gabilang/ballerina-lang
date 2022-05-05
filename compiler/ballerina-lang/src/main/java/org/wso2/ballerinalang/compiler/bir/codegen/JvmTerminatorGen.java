@@ -35,6 +35,7 @@ import org.wso2.ballerinalang.compiler.bir.codegen.interop.JTypeTags;
 import org.wso2.ballerinalang.compiler.bir.codegen.interop.JavaMethodCall;
 import org.wso2.ballerinalang.compiler.bir.model.BIRArgument;
 import org.wso2.ballerinalang.compiler.bir.model.BIRNode;
+import org.wso2.ballerinalang.compiler.bir.model.BIRNonTerminator;
 import org.wso2.ballerinalang.compiler.bir.model.BIROperand;
 import org.wso2.ballerinalang.compiler.bir.model.BIRTerminator;
 import org.wso2.ballerinalang.compiler.bir.model.VarKind;
@@ -42,7 +43,10 @@ import org.wso2.ballerinalang.compiler.bir.model.VarScope;
 import org.wso2.ballerinalang.compiler.semantics.model.SymbolTable;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BInvokableSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BPackageSymbol;
+import org.wso2.ballerinalang.compiler.semantics.model.symbols.BTypeSymbol;
+import org.wso2.ballerinalang.compiler.semantics.model.types.BArrayType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BFutureType;
+import org.wso2.ballerinalang.compiler.semantics.model.types.BIntersectionType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BInvokableType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BUnionType;
@@ -72,6 +76,7 @@ import static org.objectweb.asm.Opcodes.FCONST_0;
 import static org.objectweb.asm.Opcodes.GETFIELD;
 import static org.objectweb.asm.Opcodes.GETSTATIC;
 import static org.objectweb.asm.Opcodes.GOTO;
+import static org.objectweb.asm.Opcodes.I2B;
 import static org.objectweb.asm.Opcodes.ICONST_0;
 import static org.objectweb.asm.Opcodes.ICONST_1;
 import static org.objectweb.asm.Opcodes.IFEQ;
@@ -92,8 +97,11 @@ import static org.objectweb.asm.Opcodes.LRETURN;
 import static org.objectweb.asm.Opcodes.NEW;
 import static org.objectweb.asm.Opcodes.POP;
 import static org.objectweb.asm.Opcodes.PUTFIELD;
+import static org.wso2.ballerinalang.compiler.bir.codegen.JvmCodeGenUtil.toNameString;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.ANNOTATION_UTILS;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.ARRAY_LIST;
+import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.ARRAY_VALUE;
+import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.ARRAY_VALUE_IMPL;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.BAL_ENV;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.BAL_ERROR_REASONS;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.BAL_EXTENSION;
@@ -113,6 +121,9 @@ import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.HASH_MAP;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.IS_BLOCKED_ON_EXTERN_FIELD;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.JVM_INIT_METHOD;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.LIST;
+import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.LIST_INITIAL_EXPRESSION_ENTRY;
+import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.LIST_INITIAL_SPREAD_ENTRY;
+import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.LIST_INITIAL_VALUE_ENTRY;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.LOCK_STORE;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.LOCK_STORE_VAR_NAME;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.LOCK_VALUE;
@@ -133,6 +144,8 @@ import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.STRAND_NA
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.STRAND_POLICY_NAME;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.STRAND_THREAD;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.STRAND_VALUE_ANY;
+import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.TUPLE_VALUE_IMPL;
+import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.TYPEDESC_VALUE;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.VALUE_OF_METHOD;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.WD_CHANNELS;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.WORKER_DATA_CHANNEL;
@@ -140,6 +153,8 @@ import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.WORKER_UT
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmInstructionGen.addJUnboxInsn;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmSignatures.ANNOTATION_GET_STRAND;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmSignatures.ANY_TO_JBOOLEAN;
+import static org.wso2.ballerinalang.compiler.bir.codegen.JvmSignatures.ARRAY_ADD_BSTRING;
+import static org.wso2.ballerinalang.compiler.bir.codegen.JvmSignatures.ARRAY_ADD_OBJECT;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmSignatures.BAL_ENV_PARAM;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmSignatures.BOBJECT_CALL;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmSignatures.GET_BERROR;
@@ -161,8 +176,13 @@ import static org.wso2.ballerinalang.compiler.bir.codegen.JvmSignatures.HANDLE_F
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmSignatures.HANDLE_WAIT_ANY;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmSignatures.HANDLE_WAIT_MULTIPLE;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmSignatures.HANDLE_WORKER_ERROR;
+import static org.wso2.ballerinalang.compiler.bir.codegen.JvmSignatures.INIT_ARRAY;
+import static org.wso2.ballerinalang.compiler.bir.codegen.JvmSignatures.INIT_ARRAY_WITH_INITIAL_VALUES;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmSignatures.INIT_BAL_ENV;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmSignatures.INIT_DECIMAL;
+import static org.wso2.ballerinalang.compiler.bir.codegen.JvmSignatures.INIT_LIST_INITIAL_EXPRESSION_ENTRY;
+import static org.wso2.ballerinalang.compiler.bir.codegen.JvmSignatures.INIT_LIST_INITIAL_SPREAD_ENTRY;
+import static org.wso2.ballerinalang.compiler.bir.codegen.JvmSignatures.INIT_TUPLE;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmSignatures.IS_CONCURRENT;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmSignatures.LOCK;
 import static org.wso2.ballerinalang.compiler.bir.codegen.JvmSignatures.MAP_PUT;
@@ -364,6 +384,12 @@ public class JvmTerminatorGen {
             case FLUSH:
                 this.genFlushIns((BIRTerminator.Flush) terminator, localVarOffset);
                 return;
+            case NEW_ARRAY:
+                this.genNewArrayIns((BIRTerminator.NewArray) terminator, funcName);
+                return;
+            case ARRAY_STORE:
+                this.genArrayStoreTerm((BIRTerminator.ArrayStore) terminator, funcName);
+                return;
             case PLATFORM:
                 if (terminator instanceof JavaMethodCall) {
                     this.genJCallTerm((JavaMethodCall) terminator, attachedType, localVarOffset);
@@ -385,6 +411,122 @@ public class JvmTerminatorGen {
     private void genGoToTerm(BIRTerminator.GOTO gotoIns, String funcName) {
 
         Label gotoLabel = this.labelGen.getLabel(funcName + gotoIns.targetBB.id.value);
+        this.mv.visitJumpInsn(GOTO, gotoLabel);
+    }
+
+    private void genNewArrayIns(BIRTerminator.NewArray inst, String funcName) {
+        Label gotoLabel = this.labelGen.getLabel(funcName + inst.nextBB.id.value);
+        BType instType = JvmCodeGenUtil.getReferredType(inst.type);
+        if (instType.tag == TypeTags.ARRAY) {
+            this.mv.visitTypeInsn(NEW, ARRAY_VALUE_IMPL);
+            this.mv.visitInsn(DUP);
+            jvmTypeGen.loadType(this.mv, instType);
+            this.loadVar(inst.sizeOp.variableDcl);
+            loadListInitialValues(inst);
+            BType elementType = JvmCodeGenUtil.getReferredType(((BArrayType) instType).eType);
+
+            if (elementType.tag == TypeTags.RECORD || (elementType.tag == TypeTags.INTERSECTION &&
+                    ((BIntersectionType) elementType).effectiveType.tag == TypeTags.RECORD)) {
+                visitNewRecordArray(elementType);
+            } else {
+                this.mv.visitMethodInsn(INVOKESPECIAL, ARRAY_VALUE_IMPL, JVM_INIT_METHOD,
+                        INIT_ARRAY, false);
+            }
+            this.storeToVar(inst.lhsOp.variableDcl);
+        } else {
+            this.mv.visitTypeInsn(NEW, TUPLE_VALUE_IMPL);
+            this.mv.visitInsn(DUP);
+            jvmTypeGen.loadType(this.mv, instType);
+            this.loadVar(inst.sizeOp.variableDcl);
+            loadListInitialValues(inst);
+            this.mv.visitMethodInsn(INVOKESPECIAL, TUPLE_VALUE_IMPL, JVM_INIT_METHOD, INIT_TUPLE, false);
+            this.storeToVar(inst.lhsOp.variableDcl);
+        }
+        this.mv.visitJumpInsn(GOTO, gotoLabel);
+    }
+
+    private void loadListInitialValues(BIRTerminator.NewArray arrayNewIns) {
+        List<BIRNode.BIRListConstructorEntry> initialValues = arrayNewIns.values;
+        mv.visitLdcInsn((long) initialValues.size());
+        mv.visitInsn(L2I);
+        mv.visitTypeInsn(ANEWARRAY, LIST_INITIAL_VALUE_ENTRY);
+
+        int i = 0;
+        for (BIRNode.BIRListConstructorEntry initialValueOp : initialValues) {
+            mv.visitInsn(DUP);
+            mv.visitLdcInsn((long) i);
+            mv.visitInsn(L2I);
+            i += 1;
+
+            if (initialValueOp instanceof BIRNode.BIRListConstructorExprEntry) {
+                createExprEntry(initialValueOp);
+            } else {
+                createSpreadEntry(initialValueOp);
+            }
+
+            mv.visitInsn(AASTORE);
+        }
+    }
+
+    private void createExprEntry(BIRNode.BIRListConstructorEntry initialValueOp) {
+        mv.visitTypeInsn(NEW, LIST_INITIAL_EXPRESSION_ENTRY);
+        mv.visitInsn(DUP);
+
+        BIRNode.BIRVariableDcl varDecl = initialValueOp.exprOp.variableDcl;
+        this.loadVar(varDecl);
+        jvmCastGen.addBoxInsn(this.mv, varDecl.type);
+
+        mv.visitMethodInsn(INVOKESPECIAL, LIST_INITIAL_EXPRESSION_ENTRY, JVM_INIT_METHOD,
+                INIT_LIST_INITIAL_EXPRESSION_ENTRY, false);
+    }
+
+    private void createSpreadEntry(BIRNode.BIRListConstructorEntry initialValueOp) {
+        mv.visitTypeInsn(NEW, LIST_INITIAL_SPREAD_ENTRY);
+        mv.visitInsn(DUP);
+
+        BIRNode.BIRVariableDcl varDecl = initialValueOp.exprOp.variableDcl;
+        this.loadVar(varDecl);
+
+        mv.visitMethodInsn(INVOKESPECIAL, LIST_INITIAL_SPREAD_ENTRY, JVM_INIT_METHOD, INIT_LIST_INITIAL_SPREAD_ENTRY,
+                false);
+    }
+
+    private void visitNewRecordArray(BType type) {
+        BType elementType = JvmCodeGenUtil.getReferredType(type);
+        elementType = elementType.tag == TypeTags.INTERSECTION ?
+                ((BIntersectionType) elementType).effectiveType : elementType;
+        String typeOwner = JvmCodeGenUtil.getPackageName(type.tsymbol.pkgID) + MODULE_INIT_CLASS_NAME;
+        String typedescFieldName =
+                jvmTypeGen.getTypedescFieldName(toNameString(elementType));
+        this.mv.visitFieldInsn(GETSTATIC, typeOwner, typedescFieldName, "L" + TYPEDESC_VALUE + ";");
+        this.mv.visitMethodInsn(INVOKESPECIAL, ARRAY_VALUE_IMPL, JVM_INIT_METHOD,
+                INIT_ARRAY_WITH_INITIAL_VALUES, false);
+    }
+
+    private void genArrayStoreTerm(BIRTerminator.ArrayStore arrayStoreIns, String funcName) {
+
+        Label gotoLabel = this.labelGen.getLabel(funcName + arrayStoreIns.nextBB.id.value);
+        jvmInstructionGen.loadVar(arrayStoreIns.lhsOp.variableDcl);
+        jvmInstructionGen.loadVar(arrayStoreIns.keyOp.variableDcl);
+        jvmInstructionGen.loadVar(arrayStoreIns.rhsOp.variableDcl);
+
+        BType valueType = JvmCodeGenUtil.getReferredType(arrayStoreIns.rhsOp.variableDcl.type);
+
+        String method = "add";
+        if (TypeTags.isIntegerTypeTag(valueType.tag)) {
+            this.mv.visitMethodInsn(INVOKEINTERFACE, ARRAY_VALUE, method, "(JJ)V", true);
+        } else if (valueType.tag == TypeTags.FLOAT) {
+            this.mv.visitMethodInsn(INVOKEINTERFACE, ARRAY_VALUE, method, "(JD)V", true);
+        } else if (TypeTags.isStringTypeTag(valueType.tag)) {
+            this.mv.visitMethodInsn(INVOKEINTERFACE, ARRAY_VALUE, method, ARRAY_ADD_BSTRING, true);
+        } else if (valueType.tag == TypeTags.BOOLEAN) {
+            this.mv.visitMethodInsn(INVOKEINTERFACE, ARRAY_VALUE, method, "(JZ)V", true);
+        } else if (valueType.tag == TypeTags.BYTE) {
+            this.mv.visitInsn(I2B);
+            this.mv.visitMethodInsn(INVOKEINTERFACE, ARRAY_VALUE, method, "(JB)V", true);
+        } else {
+            this.mv.visitMethodInsn(INVOKEINTERFACE, ARRAY_VALUE, method, ARRAY_ADD_OBJECT, true);
+        }
         this.mv.visitJumpInsn(GOTO, gotoLabel);
     }
 

@@ -242,6 +242,14 @@ public class BIRInstructionWriter extends BIRVisitor {
         addCpAndWriteString(waitAll.thenBB.id.value);
     }
 
+    public void visit(BIRTerminator.ArrayStore arrayStore) {
+        addCpAndWriteString(arrayStore.nextBB.id.value);
+    }
+
+    public void visit(BIRTerminator.NewArray newArray) {
+        addCpAndWriteString(newArray.nextBB.id.value);
+    }
+
     // Non-terminating instructions
 
     @Override

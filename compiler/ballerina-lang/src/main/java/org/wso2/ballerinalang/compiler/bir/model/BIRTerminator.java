@@ -20,6 +20,7 @@ package org.wso2.ballerinalang.compiler.bir.model;
 import io.ballerina.tools.diagnostics.Location;
 import org.ballerinalang.model.elements.Flag;
 import org.ballerinalang.model.elements.PackageID;
+import org.wso2.ballerinalang.compiler.semantics.model.types.BType;
 import org.wso2.ballerinalang.compiler.util.Name;
 
 import java.util.HashSet;
@@ -709,6 +710,76 @@ public abstract class BIRTerminator extends BIRAbstractInstruction implements BI
         @Override
         public BIRBasicBlock[] getNextBasicBlocks() {
             return new BIRBasicBlock[]{thenBB};
+        }
+    }
+
+    public static class ArrayStore extends BIRTerminator {
+        public BIRBasicBlock nextBB;
+        public BIROperand keyOp;
+        public BIROperand rhsOp;
+
+        public ArrayStore(Location pos, BIRBasicBlock nextBB, BIROperand lhsOp, BIROperand keyOp, BIROperand rhsOp,
+                          BirScope scope) {
+            super(pos, InstructionKind.ARRAY_STORE);
+            this.nextBB = nextBB;
+            this.lhsOp = lhsOp;
+            this.keyOp = keyOp;
+            this.rhsOp = rhsOp;
+            this.scope = scope;
+        }
+
+        @Override
+        public void accept(BIRVisitor visitor) {
+            visitor.visit(this);
+        }
+
+        @Override
+        public BIROperand[] getRhsOperands() {
+            return new BIROperand[]{keyOp, rhsOp};
+        }
+
+        @Override
+        public BIRBasicBlock[] getNextBasicBlocks() {
+            return new BIRBasicBlock[]{nextBB};
+        }
+    }
+
+    public static class NewArray extends BIRTerminator {
+        public BIROperand sizeOp;
+        public BType type;
+        public List<BIRListConstructorEntry> values;
+        public BIRBasicBlock nextBB;
+
+        public NewArray(Location pos, BType type, BIROperand lhsOp, BIROperand sizeOp,
+                        List<BIRListConstructorEntry> values, BIRBasicBlock nextBB, BirScope scope) {
+            super(pos, InstructionKind.NEW_ARRAY);
+            this.type = type;
+            this.lhsOp = lhsOp;
+            this.sizeOp = sizeOp;
+            this.values = values;
+            this.nextBB = nextBB;
+            this.scope = scope;
+        }
+
+        @Override
+        public void accept(BIRVisitor visitor) {
+            visitor.visit(this);
+        }
+
+        @Override
+        public BIROperand[] getRhsOperands() {
+            BIROperand[] operands = new BIROperand[values.size() + 1];
+            int i = 0;
+            operands[i++] = sizeOp;
+            for (BIRListConstructorEntry listValueEntry : values) {
+                operands[i++] = listValueEntry.exprOp;
+            }
+            return operands;
+        }
+
+        @Override
+        public BIRBasicBlock[] getNextBasicBlocks() {
+            return new BIRBasicBlock[]{nextBB};
         }
     }
 }

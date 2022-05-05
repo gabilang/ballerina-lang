@@ -582,6 +582,10 @@ class InstructionEmitter {
                 return emitFPCall((BIRTerminator.FPCall) term, tabs);
             case WAIT_ALL:
                 return emitWaitAll((BIRTerminator.WaitAll) term, tabs);
+            case ARRAY_STORE:
+                return emitArrayStore((BIRTerminator.ArrayStore) term, tabs);
+            case NEW_ARRAY:
+                return emitNewArray((BIRTerminator.NewArray) term, tabs);
             default:
                 throw new IllegalStateException("Not a terminator instruction");
         }
@@ -929,6 +933,45 @@ class InstructionEmitter {
         str.append(emitBasicBlockRef(term.thenBB));
         str.append(";");
         return str.toString();
+    }
+
+    private static String emitArrayStore(BIRTerminator.ArrayStore term, int tab) {
+        String str = "";
+        str += emitTabs(tab);
+        str += "[";
+        str += emitVarRef(term.keyOp);
+        str += "]";
+        str += emitSpaces(1);
+        str += "=";
+        str += emitSpaces(1);
+        str += emitVarRef(term.rhsOp);
+        str += emitSpaces(1);
+        str += "->";
+        str += emitSpaces(1);
+        str += emitBasicBlockRef(term.nextBB);
+        str += ";";
+        return str;
+    }
+
+    private static String emitNewArray(BIRTerminator.NewArray term, int tab) {
+        String str = "";
+        str += emitTabs(tab);
+        str += emitVarRef(term.lhsOp);
+        str += emitSpaces(1);
+        str += "=";
+        str += emitSpaces(1);
+        str += "newArray";
+        str += emitSpaces(1);
+        str += emitTypeRef(term.type, 0);
+        str += "[";
+        str += emitVarRef(term.sizeOp);
+        str += "]";
+        str += emitSpaces(1);
+        str += "->";
+        str += emitSpaces(1);
+        str += emitBasicBlockRef(term.nextBB);
+        str += ";";
+        return str;
     }
 }
 

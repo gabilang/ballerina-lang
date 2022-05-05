@@ -480,6 +480,23 @@ public class BIROptimizer {
             this.optimizeNode(workerSend.data, this.env);
         }
 
+        @Override
+        public void visit(BIRTerminator.ArrayStore arrayStore) {
+            this.optimizeNode(arrayStore.lhsOp, this.env);
+            this.optimizeNode(arrayStore.keyOp, this.env);
+            this.optimizeNode(arrayStore.rhsOp, this.env);
+        }
+
+        @Override
+        public void visit(BIRTerminator.NewArray newArray) {
+            this.optimizeNode(newArray.lhsOp, this.env);
+            this.optimizeNode(newArray.sizeOp, this.env);
+
+            for (BIRNode.BIRListConstructorEntry listValueEntry : newArray.values) {
+                this.optimizeNode(listValueEntry.exprOp, this.env);
+            }
+        }
+
         // Non-terminating instructions
 
         @Override
