@@ -31,6 +31,7 @@ import org.ballerinalang.model.tree.NodeKind;
 import org.ballerinalang.model.tree.OperatorKind;
 import org.ballerinalang.model.tree.TopLevelNode;
 import org.ballerinalang.model.tree.expressions.RecordLiteralNode;
+import org.wso2.ballerinalang.compiler.bir.codegen.JvmObservabilityGen;
 import org.wso2.ballerinalang.compiler.bir.model.ArgumentState;
 import org.wso2.ballerinalang.compiler.bir.model.BIRArgument;
 import org.wso2.ballerinalang.compiler.bir.model.BIRNode;
@@ -222,6 +223,7 @@ public class BIRGen extends BLangNodeVisitor {
     private BIRGenEnv env;
     private Names names;
     private final SymbolTable symTable;
+    private final JvmObservabilityGen observabilityGen;
     private BIROptimizer birOptimizer;
     private final Types types;
 
@@ -256,6 +258,7 @@ public class BIRGen extends BLangNodeVisitor {
 
         this.names = Names.getInstance(context);
         this.symTable = SymbolTable.getInstance(context);
+        this.observabilityGen = JvmObservabilityGen.getInstance(context);
         this.birOptimizer = BIROptimizer.getInstance(context);
         this.unifier = new Unifier();
         this.types = Types.getInstance(context);
@@ -270,7 +273,13 @@ public class BIRGen extends BLangNodeVisitor {
         this.env = new BIRGenEnv(birPkg);
         astPkg.accept(this);
 
+
+
         this.birOptimizer.optimizePackage(birPkg);
+
+        // Desugar BIR to include the observations
+        this.observabilityGen.instrumentPackage(birPkg);
+
         if (!astPkg.moduleContextDataHolder.skipTests() && astPkg.hasTestablePackage()) {
             astPkg.getTestablePkgs().forEach(testPkg -> {
                 BIRPackage testBirPkg = new BIRPackage(testPkg.pos, testPkg.packageID.orgName,

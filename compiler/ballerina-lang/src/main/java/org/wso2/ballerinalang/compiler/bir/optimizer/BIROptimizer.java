@@ -18,6 +18,7 @@
 
 package org.wso2.ballerinalang.compiler.bir.optimizer;
 
+import org.wso2.ballerinalang.compiler.bir.codegen.interop.JIMethodCall;
 import org.wso2.ballerinalang.compiler.bir.model.BIRAbstractInstruction;
 import org.wso2.ballerinalang.compiler.bir.model.BIRArgument;
 import org.wso2.ballerinalang.compiler.bir.model.BIRNode;
@@ -58,7 +59,7 @@ public class BIROptimizer {
     private final RHSTempVarOptimizer rhsTempVarOptimizer;
     private final LHSTempVarOptimizer lhsTempVarOptimizer;
     private final BIRLockOptimizer lockOptimizer;
-//    private final BirVariableOptimizer variableOptimizer;
+    private final BirVariableOptimizer variableOptimizer;
     private final BIRBasicBlockOptimizer bbOptimizer;
 
     public static BIROptimizer getInstance(CompilerContext context) {
@@ -75,7 +76,7 @@ public class BIROptimizer {
         this.rhsTempVarOptimizer = new RHSTempVarOptimizer();
         this.lhsTempVarOptimizer = new LHSTempVarOptimizer();
         this.lockOptimizer = new BIRLockOptimizer();
-//        this.variableOptimizer = new BirVariableOptimizer();
+        this.variableOptimizer = new BirVariableOptimizer();
         this.bbOptimizer = new BIRBasicBlockOptimizer();
     }
 
@@ -88,7 +89,7 @@ public class BIROptimizer {
 
         // Optimize lock statements
         this.lockOptimizer.optimizeNode(pkg);
-//        variableOptimizer.optimizeNode(pkg);
+        variableOptimizer.optimizeNode(pkg);
 
         // Optimize BB - unnecessary goto removal
         bbOptimizer.optimizeNode(pkg, null);
@@ -478,6 +479,14 @@ public class BIROptimizer {
         public void visit(BIRTerminator.WorkerSend workerSend) {
             this.optimizeNode(workerSend.lhsOp, this.env);
             this.optimizeNode(workerSend.data, this.env);
+        }
+
+        @Override
+        public void visit(JIMethodCall jiMethodCall) {
+
+            System.out.println("******** JIMethodCall ***********");
+            System.out.println("args: " + jiMethodCall.args);
+            jiMethodCall.args.forEach(arg -> this.optimizeNode(arg, this.env));
         }
 
         // Non-terminating instructions

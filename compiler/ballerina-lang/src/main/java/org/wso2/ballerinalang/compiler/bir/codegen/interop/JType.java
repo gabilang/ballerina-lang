@@ -51,7 +51,7 @@ public class JType extends BType {
     private static final String JARRAY_KIND = "array";
     private static final String JREF_KIND = "ref";
     private static final String JNO_KIND = "no";
-    static JType jVoid = new JType(JVOID);
+    public static JType jVoid = new JType(JVOID);
     private static JType jByte = new JType(JBYTE);
     private static JType jChar = new JType(JCHAR);
     private static JType jShort = new JType(JSHORT);
@@ -68,7 +68,7 @@ public class JType extends BType {
         this.jTag = jTag;
     }
 
-    static JType getJTypeFromTypeName(String typeName) {
+    public static JType getJTypeFromTypeName(String typeName) {
 
         switch (typeName) {
             case JBYTE_KIND:

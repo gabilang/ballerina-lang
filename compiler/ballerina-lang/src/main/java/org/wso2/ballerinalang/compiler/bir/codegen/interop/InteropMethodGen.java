@@ -531,6 +531,8 @@ public class InteropMethodGen {
                 return "D";
             case JTypeTags.JBOOLEAN:
                 return "Z";
+//            case JTypeTags.JVOID:
+//                return "V";
             default:
                 throw new BLangCompilerException("invalid element type: " + jType);
         }
@@ -566,6 +568,8 @@ public class InteropMethodGen {
                     return sig + "D";
                 case JTypeTags.JBOOLEAN:
                     return sig + "Z";
+//                case JTypeTags.JVOID:
+//                    return sig + "V";
                 default:
                     throw new BLangCompilerException("invalid element type: " + eType);
             }

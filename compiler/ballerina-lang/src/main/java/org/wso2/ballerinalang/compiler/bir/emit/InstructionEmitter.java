@@ -17,6 +17,8 @@
  */
 package org.wso2.ballerinalang.compiler.bir.emit;
 
+import org.wso2.ballerinalang.compiler.bir.codegen.interop.JIMethodCall;
+import org.wso2.ballerinalang.compiler.bir.codegen.interop.ObservabilityJMethodCall;
 import org.wso2.ballerinalang.compiler.bir.model.BIRArgument;
 import org.wso2.ballerinalang.compiler.bir.model.BIRInstruction;
 import org.wso2.ballerinalang.compiler.bir.model.BIRNode;
@@ -121,6 +123,10 @@ class InstructionEmitter {
                 return emitInsNewTypeDesc((BIRNonTerminator.NewTypeDesc) ins, tabs);
             case NEW_TABLE:
                 return emitInsNewTable((BIRNonTerminator.NewTable) ins, tabs);
+            case PLATFORM:
+                if (ins instanceof ObservabilityJMethodCall) {
+                    return emitJMethodCall((ObservabilityJMethodCall) ins, tabs);
+                }
             default:
                 throw new IllegalStateException("Not an instruction");
 
@@ -582,6 +588,10 @@ class InstructionEmitter {
                 return emitFPCall((BIRTerminator.FPCall) term, tabs);
             case WAIT_ALL:
                 return emitWaitAll((BIRTerminator.WaitAll) term, tabs);
+            case PLATFORM:
+                if (term instanceof JIMethodCall) {
+                    return emitJIMethodCall((JIMethodCall) term, tabs);
+                }
             default:
                 throw new IllegalStateException("Not a terminator instruction");
         }
@@ -927,6 +937,54 @@ class InstructionEmitter {
         str.append("->");
         str.append(emitSpaces(1));
         str.append(emitBasicBlockRef(term.thenBB));
+        str.append(";");
+        return str.toString();
+    }
+
+    private static String emitJIMethodCall(JIMethodCall ins, int tabs) {
+        StringBuilder str = new StringBuilder();
+        str.append(emitTabs(tabs));
+        str.append(ins.name);
+        str.append("(");
+        int i = 0;
+        int argLength = ins.args.size();
+        for (BIROperand ref : ins.args) {
+            if (ref != null) {
+                str.append(emitVarRef(ref));
+                i += 1;
+                if (i < argLength) {
+                    str.append(",");
+                    str.append(emitSpaces(1));
+                }
+            }
+        }
+        str.append(")");
+        str.append(emitSpaces(1));
+        str.append("->");
+        str.append(emitSpaces(1));
+        str.append(emitBasicBlockRef(ins.thenBB));
+        str.append(";");
+        return str.toString();
+    }
+
+    private static String emitJMethodCall(ObservabilityJMethodCall ins, int tabs) {
+        StringBuilder str = new StringBuilder();
+        str.append(emitTabs(tabs));
+        str.append(ins.name);
+        str.append("(");
+        int i = 0;
+        int argLength = ins.args.size();
+        for (BIROperand ref : ins.args) {
+            if (ref != null) {
+                str.append(emitVarRef(ref));
+                i += 1;
+                if (i < argLength) {
+                    str.append(",");
+                    str.append(emitSpaces(1));
+                }
+            }
+        }
+        str.append(")");
         str.append(";");
         return str.toString();
     }

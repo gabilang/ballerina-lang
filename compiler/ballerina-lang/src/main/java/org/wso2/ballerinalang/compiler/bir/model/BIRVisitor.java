@@ -17,6 +17,8 @@
  */
 package org.wso2.ballerinalang.compiler.bir.model;
 
+import org.wso2.ballerinalang.compiler.bir.codegen.interop.JIMethodCall;
+
 /**
  * A BIR node visitor.
  *
@@ -139,6 +141,10 @@ public abstract class BIRVisitor {
     }
 
     public void visit(BIRTerminator.WorkerSend workerSend) {
+        throw new AssertionError();
+    }
+
+    public void visit(JIMethodCall methodCall) {
         throw new AssertionError();
     }
 

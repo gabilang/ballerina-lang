@@ -88,6 +88,9 @@ public class BIRInstructionWriter extends BIRVisitor {
     }
 
     void writeScopes(BIRNonTerminator instruction) {
+        if (instruction.scope == null) {
+            return;
+        }
         this.instructionOffset++;
         BirScope currentScope = instruction.scope;
 
@@ -95,7 +98,7 @@ public class BIRInstructionWriter extends BIRVisitor {
     }
 
     void writeScope(BIRTerminator terminator) {
-        if (terminator.kind != InstructionKind.RETURN) {
+        if (terminator.kind != InstructionKind.RETURN && terminator.scope != null) {
             BirScope currentScope = terminator.scope;
             writeScope(currentScope);
         }
@@ -107,7 +110,7 @@ public class BIRInstructionWriter extends BIRVisitor {
         }
 
         this.completedScopeSet.add(currentScope);
-        this.scopeCount++; // Increment the scope count so we can read the scopes iteratively
+        this.scopeCount++; // Increment the scope count. So we can read the scopes iteratively.
 
         scopeBuf.writeInt(currentScope.id);
         scopeBuf.writeInt(this.instructionOffset);
@@ -326,6 +329,10 @@ public class BIRInstructionWriter extends BIRVisitor {
             case TypeTags.UNSIGNED32_INT:
             case TypeTags.UNSIGNED16_INT:
             case TypeTags.UNSIGNED8_INT:
+                if (birConstantLoad.value instanceof Integer) {
+                    buf.writeInt(cp.addCPEntry(new IntegerCPEntry(((Integer) birConstantLoad.value).longValue())));
+                    break;
+                }
                 buf.writeInt(cp.addCPEntry(new IntegerCPEntry((Long) birConstantLoad.value)));
                 break;
             case TypeTags.BYTE:

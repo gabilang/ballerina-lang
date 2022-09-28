@@ -69,6 +69,7 @@ import org.wso2.ballerinalang.compiler.semantics.model.types.BFutureType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BInvokableType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BUnionType;
+import org.wso2.ballerinalang.compiler.util.CompilerContext;
 import org.wso2.ballerinalang.compiler.util.Name;
 import org.wso2.ballerinalang.compiler.util.Names;
 import org.wso2.ballerinalang.compiler.util.TypeTags;
@@ -105,7 +106,8 @@ import static org.wso2.ballerinalang.compiler.bir.codegen.JvmSignatures.STOP_OBS
  *
  * @since 2.0.0
  */
-class JvmObservabilityGen {
+public class JvmObservabilityGen {
+    private static final CompilerContext.Key<JvmObservabilityGen> OBSERVABILITY_GEN_KEY = new CompilerContext.Key<>();
     private static final String ENTRY_POINT_MAIN_METHOD_NAME = "main";
     private static final String NEW_BB_PREFIX = "observabilityDesugaredBB";
     private static final String INVOCATION_INSTRUMENTATION_TYPE = "invocation";
@@ -129,13 +131,21 @@ class JvmObservabilityGen {
     private final Map<String, BIROperand> tempLocalVarsMap;
     private final Map<BIRBasicBlock, List<BIRBasicBlock>> predecessorMap;
 
-    JvmObservabilityGen(PackageCache packageCache, SymbolTable symbolTable) {
+    public static JvmObservabilityGen getInstance(CompilerContext context) {
+        JvmObservabilityGen observabilityGen = context.get(OBSERVABILITY_GEN_KEY);
+        if (observabilityGen == null) {
+            observabilityGen = new JvmObservabilityGen(context);
+        }
+        return observabilityGen;
+    }
+
+    private JvmObservabilityGen(CompilerContext context) {
         this.compileTimeConstants = new HashMap<>();
         this.svcAttachPoints = new HashMap<>();
         this.tempLocalVarsMap = new HashMap<>();
         this.predecessorMap = new HashMap<>();
-        this.packageCache = packageCache;
-        this.symbolTable = symbolTable;
+        this.packageCache = PackageCache.getInstance(context);
+        this.symbolTable = SymbolTable.getInstance(context);
         this.lambdaIndex = 0;
         this.desugaredBBIndex = 0;
         this.constantIndex = 0;
@@ -245,16 +255,15 @@ class JvmObservabilityGen {
             Location desugaredPos = getDesugaredPosition(currentBB);
 
             if (desugaredPos != null && desugaredPos.lineRange().startLine().line() >= 0) {
+                int callInsOffset = 0;
                 List<BIRBasicBlock> predecessors = entry.getValue();
-                if (predecessors.isEmpty()) {
-                    injectCheckpointCall(currentBB, pkg, desugaredPos);
-                    continue;
-                }
                 boolean alreadyLoaded = predecessors.stream()
                                                     .anyMatch(bb -> getDesugaredPosition(bb).equals(desugaredPos));
                 if (!alreadyLoaded) {
-                    injectCheckpointCall(currentBB, pkg, desugaredPos);
+                    updatePositionArgsConstLoadIns(desugaredPos, currentBB);
+                    callInsOffset = 2;
                 }
+                injectCheckpointCall(currentBB, pkg, callInsOffset);
             }
         }
     }
@@ -264,13 +273,10 @@ class JvmObservabilityGen {
      *
      * @param currentBB The basic block to which the checkpoint call should be injected
      * @param pkg The package the invocation belongs to
-     * @param originalInsPosition The source code position of the invocation
      */
-    private void injectCheckpointCall(BIRBasicBlock currentBB, BIRPackage pkg,
-                                      Location originalInsPosition) {
+    private void injectCheckpointCall(BIRBasicBlock currentBB, BIRPackage pkg, int offset) {
         BIROperand pkgOperand = generateGlobalConstantOperand(pkg, symbolTable.stringType,
                 generatePackageId(pkg.packageID));
-        updatePositionArgsConstLoadIns(originalInsPosition, currentBB);
         BIROperand fileNameOperand = tempLocalVarsMap.get(FILE_NAME_STRING);
         BIROperand startLineOperand = tempLocalVarsMap.get(START_LINE_STRING);
         BIROperand startColOperand = tempLocalVarsMap.get(START_COLUMN_STRING);
@@ -281,7 +287,7 @@ class JvmObservabilityGen {
         recordCheckPointCallIns.name = RECORD_CHECKPOINT_METHOD;
         recordCheckPointCallIns.args = new ArrayList<>(Arrays.asList(pkgOperand, fileNameOperand,
                 startLineOperand, startColOperand));
-        currentBB.instructions.add(2, recordCheckPointCallIns);
+        currentBB.instructions.add(offset, recordCheckPointCallIns);
     }
 
     private Location getDesugaredPosition(BIRBasicBlock basicBlock) {
