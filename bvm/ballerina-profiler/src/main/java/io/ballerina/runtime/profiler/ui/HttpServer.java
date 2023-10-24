@@ -35,6 +35,7 @@ import java.util.EnumSet;
 
 import static io.ballerina.runtime.profiler.util.Constants.BALLERINA_HOME;
 import static io.ballerina.runtime.profiler.util.Constants.OUT_STREAM;
+import static io.ballerina.runtime.profiler.util.Constants.PERFORMANCE_JSON;
 import static io.ballerina.runtime.profiler.util.Constants.WORKING_DIRECTORY;
 
 /**
@@ -57,7 +58,7 @@ public class HttpServer {
             OUT_STREAM.printf("%s%n", e);
         }
 
-        String content = FileUtils.readFileAsString("performance_report.json");
+        String content = FileUtils.readFileAsString(PERFORMANCE_JSON);
         FrontEnd frontEnd = new FrontEnd();
         String htmlData = frontEnd.getSiteData(content);
         String fileName = "ProfilerReport.html";
